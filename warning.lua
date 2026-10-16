@@ -1,13 +1,15 @@
-local Players      = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local CoreGui      = game:GetService("CoreGui")
 
 local LIME       = Color3.fromRGB(132, 204, 22)
+local LIME_DIM   = Color3.fromRGB(60, 90, 15)
 local BG         = Color3.fromRGB(18, 18, 18)
 local BG_HEADER  = Color3.fromRGB(12, 12, 12)
 local STROKE     = Color3.fromRGB(40, 40, 40)
 local TEXT       = Color3.fromRGB(225, 225, 225)
-local TEXT_SUB   = Color3.fromRGB(130, 130, 130)
+local TEXT_DIM   = Color3.fromRGB(110, 110, 110)
+
+local LOCK_TIME = 10
 
 for _, v in ipairs((gethui and gethui() or CoreGui):GetChildren()) do
     if v.Name == "gr1ss_warning" then v:Destroy() end
@@ -108,11 +110,12 @@ okBtn.Size = UDim2.fromOffset(90, 26)
 okBtn.Position = UDim2.new(1, -102, 1, -42)
 okBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 okBtn.BorderSizePixel = 0
-okBtn.Text = "ok"
-okBtn.TextColor3 = TEXT
+okBtn.Text = "ok (" .. LOCK_TIME .. ")"
+okBtn.TextColor3 = TEXT_DIM
 okBtn.Font = Enum.Font.Code
 okBtn.TextSize = 12
 okBtn.AutoButtonColor = false
+okBtn.Active = false
 okBtn.Parent = panel
 
 local okCorner = Instance.new("UICorner")
@@ -124,16 +127,33 @@ okStroke.Color = STROKE
 okStroke.Thickness = 1
 okStroke.Parent = okBtn
 
+local unlocked = false
+
+task.spawn(function()
+    for i = LOCK_TIME, 1, -1 do
+        okBtn.Text = "ok (" .. i .. ")"
+        task.wait(1)
+    end
+    okBtn.Text = "ok"
+    okBtn.TextColor3 = TEXT
+    okBtn.Active = true
+    okStroke.Color = STROKE
+    unlocked = true
+end)
+
 okBtn.MouseEnter:Connect(function()
+    if not unlocked then return end
     TweenService:Create(okBtn, TweenInfo.new(0.1), { BackgroundColor3 = Color3.fromRGB(42, 42, 42) }):Play()
     okStroke.Color = LIME
 end)
 okBtn.MouseLeave:Connect(function()
+    if not unlocked then return end
     TweenService:Create(okBtn, TweenInfo.new(0.1), { BackgroundColor3 = Color3.fromRGB(30, 30, 30) }):Play()
     okStroke.Color = STROKE
 end)
 
 okBtn.MouseButton1Click:Connect(function()
+    if not unlocked then return end
     local outTween = TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
     TweenService:Create(panel, outTween, {
         Size = UDim2.fromOffset(340, 190),
