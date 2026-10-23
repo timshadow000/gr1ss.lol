@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>pra1m1ch</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Space+Grotesk:wght@500;700&family=JetBrains+Mono:wght@400;700;800&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --bg: #000000;
+            --surface: #0a0a0a;
+            --text: #ffffff;
+            --text-muted: #888888;
+            --border: #333333;
+            --border-light: #555555;
+            --accent: #ffffff;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; cursor: none !important; }
+        
+        .cursor-dot, .cursor-outline {
+            position: fixed; top: 0; left: 0;
+            pointer-events: none; z-index: 10000;
+            transform: translate(-50%, -50%);
+            transition: width 0.2s, height 0.2s, background 0.2s, border-color 0.2s;
+        }
+        .cursor-dot { width: 4px; height: 4px; background: #fff; border-radius: 50%; }
+        .cursor-outline { width: 36px; height: 36px; border: 1px solid #fff; border-radius: 50%; opacity: 0.5; }
+        .cursor-outline.hovered { width: 50px; height: 50px; background: rgba(255, 255, 255, 0.1); border-color: #fff; opacity: 1; }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            font-family: 'Inter', sans-serif;
+            min-height: 100vh;
+            display: flex; flex-direction: column;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        #bg-canvas {
+            position: fixed; top: 0; left: 0;
+            width: 100vw; height: 100vh;
+            z-index: -2;
+        }
+
+        .scanlines {
+            position: fixed; inset: 0; pointer-events: none;
+            background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0) 50%, rgba(0,0,0,0.5) 50%, rgba(0,0,0,0.5));
+            background-size: 100% 3px; z-index: 9999;
+            animation: flicker 0.15s infinite alternate;
+            opacity: 0.3;
+        }
+        @keyframes flicker { 0% { opacity: 0.2; } 100% { opacity: 0.3; } }
+
+        .header {
+            width: 100%; padding: 20px 40px;
+            display: flex; justify-content: space-between; align-items: center;
+            border-bottom: 2px solid var(--border);
+            background: #000; position: sticky; top: 0; z-index: 100;
+        }
+
+        .brand { display: flex; align-items: center; gap: 20px; text-decoration: none; color: var(--text); }
+        
+        .avatar-box {
+            width: 55px; height: 55px; border: 2px solid var(--text);
+            position: relative; overflow: hidden; transition: all 0.3s;
+        }
+        .brand:hover .avatar-box { transform: scale(1.05); box-shadow: 0 0 15px rgba(255,255,255,0.2); }
+        .avatar-box img { width: 100%; height: 100%; object-fit: cover; filter: grayscale(1) contrast(1.5); transition: all 0.3s; }
+        .brand:hover .avatar-box img { filter: grayscale(0) contrast(1); }
+
+        .brand-name {
+            font-family: 'Space Grotesk', sans-serif; font-size: 2rem; font-weight: 700;
+            text-transform: uppercase; letter-spacing: -1px; line-height: 1;
+        }
+        .brand:hover .brand-name { text-shadow: 2px 0 #000, -2px 0 #fff; animation: textGlitch 0.2s infinite; }
+        @keyframes textGlitch {
+            0% { transform: translate(0); } 25% { transform: translate(-1px, 1px); }
+            50% { transform: translate(1px, -1px); } 75% { transform: translate(-1px, -1px); }
+            100% { transform: translate(0); }
+        }
+        .brand-sub { font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; color: var(--text-muted); letter-spacing: 2px; }
+
+        .clock {
+            font-family: 'JetBrains Mono', monospace; font-size: 1.2rem; font-weight: 700;
+            text-align: right; line-height: 1.1; border-right: 2px solid var(--border); padding-right: 20px;
+            color: #fff;
+        }
+        .clock span { display: block; font-size: 0.7rem; color: var(--text-muted); letter-spacing: 1px; }
+
+        .wrapper { width: 100%; max-width: 1600px; margin: 0 auto; padding: 30px 20px; display: flex; flex-direction: column; gap: 25px; flex: 1; z-index: 10; }
+        .grid-layout { display: grid; grid-template-columns: repeat(12, 1fr); gap: 25px; align-items: stretch; }
+
+        .card {
+            background: var(--surface);
+            border: 2px solid var(--border);
+            position: relative; overflow: hidden;
+            display: flex; flex-direction: column;
+            transition: transform 0.1s ease-out, border-color 0.3s;
+        }
+        .card:hover { border-color: var(--text); }
+
+        .card-content { position: relative; z-index: 2; padding: 24px; height: 100%; display: flex; flex-direction: column; }
+
+        .card-header {
+            font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; font-weight: 700;
+            color: var(--text-muted); text-transform: uppercase; letter-spacing: 2px;
+            margin-bottom: 20px; display: flex; justify-content: space-between;
+            border-bottom: 2px solid var(--border); padding-bottom: 10px;
+        }
+
+        .col-status { grid-column: span 5; }
+        .status-live { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+        .live-indicator { display: flex; align-items: center; gap: 12px; font-family: 'Space Grotesk', sans-serif; font-size: 2.2rem; font-weight: 700; text-transform: uppercase; }
+        
+        .dot { width: 14px; height: 14px; background: var(--text-muted); border: 2px solid var(--text); border-radius: 50%; position: relative; }
+        .dot.live { background: var(--text); animation: pulseLive 1.5s infinite; }
+        .dot.live::after { content: ''; position: absolute; inset: -6px; border-radius: 50%; border: 2px solid var(--text); animation: ripple 1.5s infinite; opacity: 0; }
+        @keyframes pulseLive { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.1); } }
+        @keyframes ripple { 0% { transform: scale(0.5); opacity: 1; } 100% { transform: scale(2.5); opacity: 0; } }
+
+        .viewers {
+            font-family: 'JetBrains Mono', monospace; font-size: 1.1rem; font-weight: 800;
+            border: 2px solid var(--text); padding: 5px 15px; transition: all 0.3s;
+            background: transparent; color: var(--text);
+        }
+        .viewers:hover { background: var(--text); color: var(--bg); }
+
+        .stream-title { font-family: 'Space Grotesk', sans-serif; font-size: 1.6rem; font-weight: 700; line-height: 1.2; margin-bottom: 10px; }
+        .stream-game { font-family: 'JetBrains Mono', monospace; font-size: 0.9rem; color: var(--text-muted); }
+        .stream-game span { color: var(--text); border-bottom: 1px dashed var(--border); }
+
+        .timer-box {
+            border: 2px solid var(--border); background: #000;
+            padding: 20px; text-align: center; margin: 20px 0; position: relative;
+        }
+        .timer-label { font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; color: var(--text-muted); letter-spacing: 2px; margin-bottom: 5px;}
+        .timer-val { font-family: 'JetBrains Mono', monospace; font-size: 3rem; font-weight: 800; letter-spacing: -2px; color: #fff; }
+
+        .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: auto; }
+        .btn {
+            display: flex; justify-content: center; align-items: center; padding: 16px;
+            font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 0.95rem;
+            text-transform: uppercase; text-decoration: none; border: 2px solid var(--text);
+            transition: all 0.2s; position: relative; will-change: transform; overflow: hidden;
+        }
+        .btn-outline { background: transparent; color: var(--text); }
+        .btn-outline:hover { background: var(--text); color: var(--bg); }
+        .btn-solid { background: var(--text); color: var(--bg); }
+        .btn-solid:hover { background: transparent; color: var(--text); }
+
+        .col-chat { grid-column: span 7; height: 550px; }
+        .chat-container-fix { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+        .chat-list {
+            flex: 1; min-height: 0; overflow-y: auto; 
+            background: #000; border: 2px solid var(--border); 
+            display: flex; flex-direction: column;
+            scrollbar-width: thin; scrollbar-color: #fff #000;
+        }
+        .chat-list::-webkit-scrollbar { width: 6px; }
+        .chat-list::-webkit-scrollbar-track { background: #000; border-left: 2px solid var(--border); }
+        .chat-list::-webkit-scrollbar-thumb { background: #fff; }
+
+        .chat-msg {
+            font-size: 0.95rem; line-height: 1.4; padding: 10px 15px;
+            border-bottom: 1px solid var(--border); word-break: break-word; 
+            display: flex; align-items: flex-start; gap: 6px; animation: chatSlide 0.2s ease-out forwards;
+        }
+        .chat-msg:hover { background: #111; }
+        @keyframes chatSlide { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: translateX(0); } }
+
+        .chat-user { font-family: 'Space Grotesk', sans-serif; font-weight: 700; color: #fff; white-space: nowrap; }
+        .chat-text { color: #ccc; flex: 1; }
+        .chat-badge { width: 16px; height: 16px; vertical-align: middle; margin-top: 2px; filter: grayscale(1) invert(1); }
+        .emote { height: 24px; vertical-align: middle; margin: -4px 2px; filter: grayscale(1); }
+
+        .col-games { grid-column: span 4; }
+        .games-grid { display: flex; flex-direction: column; gap: 12px; }
+        .game-item { display: flex; align-items: center; gap: 15px; padding: 12px; border: 2px solid var(--border); transition: all 0.3s; background: #000; }
+        .game-item:hover { border-color: var(--text); background: #111; }
+        .game-icon { width: 45px; height: 45px; object-fit: cover; border: 2px solid var(--border); transition: all 0.3s; filter: grayscale(1); }
+        .game-item:hover .game-icon { filter: grayscale(0); border-color: var(--text); }
+        .game-icon.contains { object-fit: contain; padding: 4px; }
+        .game-name { font-family: 'Space Grotesk', sans-serif; font-size: 1.1rem; font-weight: 700; }
+
+        .col-socials { grid-column: span 3; }
+        .socials-grid { display: flex; flex-direction: column; gap: 12px; }
+        .social-item {
+            display: flex; justify-content: space-between; align-items: center; padding: 14px 18px;
+            border: 2px solid var(--border); color: var(--text); text-decoration: none;
+            font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; font-weight: 700;
+            transition: all 0.3s; background: #000;
+        }
+        .social-item:hover { background: var(--text); color: var(--bg); border-color: var(--text); }
+        .social-item svg { width: 20px; height: 20px; fill: currentColor; }
+
+        .col-stats { grid-column: span 5; }
+        .terminal {
+            background: #000; border: 2px solid var(--border); padding: 15px;
+            font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: #aaa;
+            flex: 1; overflow-y: auto; min-height: 120px; margin-bottom: 15px;
+        }
+        .term-line { display: flex; gap: 8px; margin-bottom: 4px; }
+        .term-prompt { color: #fff; font-weight: 800; }
+        .term-text { color: #888; }
+        .cursor { display: inline-block; width: 8px; height: 14px; background: #fff; animation: blink 1s step-end infinite; vertical-align: middle; }
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+
+        .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .stat-box { border: 2px solid var(--border); padding: 15px; text-align: center; background: #000; }
+        .stat-box:hover { border-color: var(--text); }
+        .stat-label { font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; margin-bottom: 5px; }
+        .stat-value { font-family: 'Space Grotesk', sans-serif; font-size: 1.8rem; font-weight: 800; color: #fff; }
+
+        .clips-list { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
+        .clip-btn { 
+            display: flex; justify-content: space-between; align-items: center; padding: 12px 15px; 
+            border: 2px solid var(--border); color: var(--text); text-decoration: none; 
+            font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; transition: all 0.2s;
+        }
+        .clip-btn:hover { background: var(--text); color: var(--bg); }
+        .clip-btn span { font-weight: 700; }
+
+        @media (max-width: 1100px) {
+            .col-status, .col-chat { grid-column: span 12; }
+            .col-games { grid-column: span 5; }
+            .col-socials { grid-column: span 4; }
+            .col-stats { grid-column: span 3; }
+        }
+        @media (max-width: 768px) {
+            .col-games, .col-socials, .col-stats { grid-column: span 12; }
+            .actions { grid-template-columns: 1fr; }
+            .header { padding: 15px; flex-direction: column; align-items: flex-start; gap: 15px; }
+            .clock { border-right: none; padding-right: 0; text-align: left; }
+            .col-chat { height: 400px; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="cursor-dot"></div>
+    <div class="cursor-outline"></div>
+
+    <div class="scanlines"></div>
+    <canvas id="bg-canvas"></canvas>
+
+    <header class="header">
+        <a href="#" class="brand">
+            <div class="avatar-box">
+                <img src="https://static-cdn.jtvnw.net/jtv_user_pictures/2086c5f7-0a23-4f03-b5f8-202893a8f660-profile_image-70x70.png" alt="pra1m1ch">
+            </div>
+            <div class="brand-text">
+                <div class="brand-name">pra1m1ch</div>
+                <div class="brand-sub">// B&W TERMINAL</div>
+            </div>
+        </a>
+        <div class="header-right">
+            <div class="clock">
+                <span id="sys-date">--.--.----</span>
+                <b id="sys-time">--:--:--</b>
+            </div>
+        </div>
+    </header>
+
+    <div class="wrapper">
+        <div class="grid-layout">
+            
+            <div class="col-status">
+                <div class="card">
+                    <div class="card-content">
+                        <div class="card-header">
+                            <span>SYS.STATUS</span>
+                            <span id="status-badge">LIVE_FEED</span>
+                        </div>
+                        
+                        <div class="status-live">
+                            <div class="live-indicator">
+                                <div class="dot" id="live-dot"></div>
+                                <span id="status-text">OFFLINE</span>
+                            </div>
+                            <div class="viewers" id="viewer-count">0 VIEWS</div>
+                        </div>
+
+                        <div class="stream-info">
+                            <div class="stream-title" id="stream-title">Загрузка данных...</div>
+                            <div class="stream-game" id="stream-game">Категория: <span>—</span></div>
+                        </div>
+
+                        <div class="timer-box" id="timer-box" style="display:none;">
+                            <div class="timer-label">UPTIME</div>
+                            <div class="timer-val" id="stream-duration">00:00:00</div>
+                        </div>
+
+                        <div class="actions">
+                            <a href="https://twitch.tv/pra1m1ch" target="_blank" class="btn btn-outline magnetic">TWITCH</a>
+                            <a href="https://www.donationalerts.com/r/pra1m1ch" target="_blank" class="btn btn-solid magnetic">DONATE</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-chat">
+                <div class="card" style="height: 100%;">
+                    <div class="card-content" style="padding: 20px;">
+                        <div class="card-header" style="margin-bottom: 10px; border-bottom: none; padding-bottom: 0;">
+                            <span>SYS.CHAT_FEED</span>
+                            <span id="chat-status" style="color:var(--text-muted)">CONNECTING</span>
+                        </div>
+                        <div class="chat-container-fix">
+                            <div class="chat-list" id="chat-container"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-games">
+                <div class="card">
+                    <div class="card-content">
+                        <div class="card-header">ИГРЫ</div>
+                        <div class="games-grid">
+                            <div class="game-item">
+                                <img src="https://i.vimeocdn.com/video/1618951707-968e1b4359178288eaaf1bdfc3d2b5a344e27035663bbf63a93f49329d9bdd12-d_2400?region=us" alt="Fortnite" class="game-icon">
+                                <div class="game-name">Fortnite</div>
+                            </div>
+                            <div class="game-item">
+                                <img src="https://avatars.mds.yandex.net/i?id=5532f899271b5ea098c28c929777c7f9_l-5281219-images-thumbs&n=13" alt="Geometry Dash" class="game-icon">
+                                <div class="game-name">Geometry Dash</div>
+                            </div>
+                            <div class="game-item">
+                                <img src="https://github.com/timshadow000/wordice/blob/main/wordice.png?raw=true" alt="Wordice" class="game-icon contains">
+                                <div class="game-name">Wordice</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-socials">
+                <div class="card">
+                    <div class="card-content">
+                        <div class="card-header">ССЫЛКИ</div>
+                        <div class="socials-grid">
+                            <a href="https://discord.gg/4mUSDhbdmR" target="_blank" class="social-item magnetic">
+                                <span>DISCORD</span>
+                                <svg viewBox="0 0 24 24"><path d="M20.317 4.37a19.79 19.79 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/></svg>
+                            </a>
+                            <a href="https://t.me/pra1m1ch" target="_blank" class="social-item magnetic">
+                                <span>TELEGRAM</span>
+                                <svg viewBox="0 0 24 24"><path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/></svg>
+                            </a>
+                            <a href="https://www.donationalerts.com/r/pra1m1ch" target="_blank" class="social-item magnetic">
+                                <span>DONATE</span>
+                                <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1.41 16.09V20h-2.67v-1.93c-1.71-.36-3.16-1.46-3.27-3.4h1.96c.1 1.05.82 1.87 2.65 1.87 1.96 0 2.4-.98 2.4-1.59 0-.83-.44-1.61-2.67-2.14-2.48-.6-4.18-1.62-4.18-3.67 0-1.72 1.39-2.84 3.11-3.21V4h2.67v1.95c1.86.45 2.79 1.86 2.85 3.39H14.3c-.05-1.11-.64-1.87-2.22-1.87-1.5 0-2.4.68-2.4 1.64 0 .84.65 1.39 2.67 1.91s4.18 1.39 4.18 3.91c-.01 1.83-1.38 2.83-3.12 3.16z"/></svg>
+                            </a>
+
+                            <div class="card-header" style="margin-top: 10px; margin-bottom: 5px; padding-bottom: 5px;">КЛИПЫ</div>
+                            <div class="clips-list">
+                                <a href="https://www.twitch.tv/pra1m1ch/clip/EnticingBraveWombatPlanking-d2ca0bFDDvjskgjJ" target="_blank" class="clip-btn magnetic">
+                                    <span>CLIP 01</span> <span>↗</span>
+                                </a>
+                                <a href="https://www.twitch.tv/pra1m1ch/clip/EnergeticViscousPresidentPMSTwin-MQH9EKPkHFx-RkYP" target="_blank" class="clip-btn magnetic">
+                                    <span>CLIP 02</span> <span>↗</span>
+                                </a>
+                                <a href="https://www.twitch.tv/pra1m1ch/clip/BetterPiliableHamDatSheffy-xxtXhFtDKpwvASd3" target="_blank" class="clip-btn magnetic">
+                                    <span>CLIP 03</span> <span>↗</span>
+                                </a>
+                                <a href="https://www.twitch.tv/pra1m1ch/clip/TallTentativePotatoOneHand-WBHaoX2OsHoA5FYE" target="_blank" class="clip-btn magnetic">
+                                    <span>CLIP 04</span> <span>↗</span>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-stats">
+                <div class="card">
+                    <div class="card-content">
+                        <div class="card-header">SYSTEM.LOG</div>
+                        <div class="terminal" id="terminal-window">
+                            <div class="term-line"><span class="term-prompt">root@pra1m1ch:~#</span><span class="term-text" id="log-line">Bypassing security...</span><span class="cursor"></span></div>
+                        </div>
+                        <div class="stats-grid">
+                            <div class="stat-box">
+                                <div class="stat-label">Followers</div>
+                                <div class="stat-value" id="stat-followers">--</div>
+                            </div>
+                            <div class="stat-box">
+                                <div class="stat-label">Account Age</div>
+                                <div class="stat-value" id="stat-age">--</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        const cursorDot = document.querySelector('.cursor-dot');
+        const cursorOutline = document.querySelector('.cursor-outline');
+        let mouseX = 0, mouseY = 0, outlineX = 0, outlineY = 0;
+
+        window.addEventListener('mousemove', (e) => {
+            mouseX = e.clientX; mouseY = e.clientY;
+            cursorDot.style.transform = `translate(${mouseX}px, ${mouseY}px)`;
+        });
+
+        function animateCursor() {
+            outlineX += (mouseX - outlineX) * 0.15;
+            outlineY += (mouseY - outlineY) * 0.15;
+            cursorOutline.style.transform = `translate(${outlineX}px, ${outlineY}px)`;
+            requestAnimationFrame(animateCursor);
+        }
+        animateCursor();
+
+        document.querySelectorAll('a, button, .game-item').forEach(el => {
+            el.addEventListener('mouseenter', () => cursorOutline.classList.add('hovered'));
+            el.addEventListener('mouseleave', () => cursorOutline.classList.remove('hovered'));
+        });
+
+        const canvas = document.getElementById('bg-canvas');
+        const ctx = canvas.getContext('2d');
+        let width, height, stars = [], gridOffset = 0;
+
+        function resize() { width = canvas.width = window.innerWidth; height = canvas.height = window.innerHeight; }
+        window.addEventListener('resize', resize); resize();
+
+        for (let i = 0; i < 100; i++) {
+            stars.push({ x: Math.random() * width, y: Math.random() * height, z: Math.random() * 2 + 0.5, size: Math.random() * 1.5 });
+        }
+
+        function drawBackground() {
+            ctx.fillStyle = '#000000'; 
+            ctx.fillRect(0, 0, width, height);
+
+            gridOffset += 0.5; if(gridOffset > 40) gridOffset = 0;
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)'; 
+            ctx.lineWidth = 1;
+            for(let i=0; i<width; i+=40) { ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, height); ctx.stroke(); }
+            for(let j=gridOffset; j<height; j+=40) { ctx.beginPath(); ctx.moveTo(0, j); ctx.lineTo(width, j); ctx.stroke(); }
+
+            stars.forEach(s => {
+                ctx.fillStyle = `rgba(255, 255, 255, ${Math.random() * 0.5 + 0.3})`;
+                ctx.beginPath(); ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2); ctx.fill();
+                s.y += s.z * 0.2;
+                if (s.y > height) s.y = 0;
+            });
+            requestAnimationFrame(drawBackground);
+        }
+        drawBackground();
+
+        document.querySelectorAll('.card').forEach(card => {
+            card.addEventListener('mousemove', e => {
+                const rect = card.getBoundingClientRect();
+                const x = e.clientX - rect.left; const y = e.clientY - rect.top;
+                const centerX = rect.width / 2; const centerY = rect.height / 2;
+                const rotateX = ((y - centerY) / centerY) * -2;
+                const rotateY = ((x - centerX) / centerX) * 2;
+                card.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale3d(1.01, 1.01, 1.01)`;
+            });
+            card.addEventListener('mouseleave', () => {
+                card.style.transform = `perspective(1000px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)`;
+            });
+        });
+
+        document.querySelectorAll('.magnetic').forEach(btn => {
+            btn.addEventListener('mousemove', e => {
+                const rect = btn.getBoundingClientRect();
+                const x = e.clientX - rect.left - rect.width / 2;
+                const y = e.clientY - rect.top - rect.height / 2;
+                btn.style.transform = `translate(${x * 0.2}px, ${y * 0.2}px)`;
+            });
+            btn.addEventListener('mouseleave', () => { btn.style.transform = `translate(0px, 0px)`; });
+        });
+
+        setInterval(() => {
+            const now = new Date();
+            document.getElementById('sys-time').textContent = now.toLocaleTimeString('ru-RU');
+            document.getElementById('sys-date').textContent = now.toLocaleDateString('ru-RU');
+        }, 1000);
+
+        const logs = ["Bypassing mainframe...", "Connecting to API...", "Fetching status...", "System ready."];
+        let logIndex = 0, charIndex = 0;
+        const logEl = document.getElementById('log-line');
+        
+        function typeLog() {
+            if (logIndex < logs.length) {
+                if (charIndex < logs[logIndex].length) {
+                    logEl.textContent += logs[logIndex].charAt(charIndex);
+                    charIndex++; setTimeout(typeLog, 30);
+                } else {
+                    logIndex++; charIndex = 0;
+                    if (logIndex < logs.length) { logEl.textContent = ""; setTimeout(typeLog, 800); }
+                }
+            }
+        }
+        setTimeout(typeLog, 2000);
+
+        const CHANNEL = 'pra1m1ch';
+        const MOD_BADGE = 'https://static-cdn.jtvnw.net/badges/v1/3267646d-33f0-4b17-b3df-f923a41db1d0/1';
+        
+        const elLiveDot = document.getElementById('live-dot');
+        const elStatusText = document.getElementById('status-text');
+        const elViewerCount = document.getElementById('viewer-count');
+        const elStreamTitle = document.getElementById('stream-title');
+        const elStreamGame = document.getElementById('stream-game');
+        const elTimerBox = document.getElementById('timer-box');
+        const elDuration = document.getElementById('stream-duration');
+        const elFollowers = document.getElementById('stat-followers');
+        const elAge = document.getElementById('stat-age');
+
+        let startTime = null, timerInt = null;
+
+        function animateValue(obj, start, end, duration) {
+            let startTimestamp = null;
+            const step = (timestamp) => {
+                if (!startTimestamp) startTimestamp = timestamp;
+                const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+                const easeOut = 1 - Math.pow(1 - progress, 3);
+                obj.innerHTML = Math.floor(easeOut * (end - start) + start).toLocaleString('ru-RU');
+                if (progress < 1) window.requestAnimationFrame(step);
+            };
+            window.requestAnimationFrame(step);
+        }
+
+        function parseUptime(str) {
+            if (!str || str.toLowerCase().includes('offline')) return null;
+            let h = 0, m = 0, s = 0;
+            const hm = str.match(/(\d+)\s*hour/); if(hm) h = parseInt(hm[1]);
+            const mm = str.match(/(\d+)\s*minute/); if(mm) m = parseInt(mm[1]);
+            const sm = str.match(/(\d+)\s*second/); if(sm) s = parseInt(sm[1]);
+            return ((h * 60 + m) * 60 + s) * 1000;
+        }
+
+        function formatMs(ms) {
+            const sec = Math.floor(ms / 1000);
+            const h = Math.floor(sec / 3600);
+            const m = Math.floor((sec % 3600) / 60);
+            const s = sec % 60;
+            return `${h.toString().padStart(2,'0')}:${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
+        }
+
+        async function updateAPI() {
+            try {
+                const [up, view, game, title, fol, age] = await Promise.all([
+                    fetch(`https://decapi.me/twitch/uptime/${CHANNEL}`).then(r=>r.text()),
+                    fetch(`https://decapi.me/twitch/viewercount/${CHANNEL}`).then(r=>r.text()),
+                    fetch(`https://decapi.me/twitch/game/${CHANNEL}`).then(r=>r.text()),
+                    fetch(`https://decapi.me/twitch/title/${CHANNEL}`).then(r=>r.text()),
+                    fetch(`https://decapi.me/twitch/followcount/${CHANNEL}`).then(r=>r.text()),
+                    fetch(`https://decapi.me/twitch/accountage/${CHANNEL}`).then(r=>r.text())
+                ]);
+
+                if (fol && !fol.includes('error')) {
+                    const count = parseInt(fol);
+                    if (elFollowers.textContent === '--') animateValue(elFollowers, 0, count, 1500);
+                    else elFollowers.textContent = count.toLocaleString('ru-RU');
+                }
+                if (age && !age.includes('error')) elAge.textContent = age;
+
+                if (up.toLowerCase().includes('offline')) {
+                    elLiveDot.classList.remove('live');
+                    elStatusText.textContent = 'OFFLINE';
+                    elViewerCount.textContent = '0 VIEWS';
+                    elStreamTitle.textContent = title !== 'null' ? title : 'Стрим не идет.';
+                    elStreamGame.textContent = '—';
+                    elTimerBox.style.display = 'none';
+                    startTime = null; if(timerInt) clearInterval(timerInt);
+                } else {
+                    const ms = parseUptime(up);
+                    startTime = Date.now() - ms;
+                    elDuration.textContent = formatMs(ms);
+                    elLiveDot.classList.add('live');
+                    elStatusText.textContent = 'В ЭФИРЕ';
+                    elViewerCount.textContent = `${view} VIEWS`;
+                    elStreamTitle.textContent = title !== 'null' ? title : 'Без названия';
+                    elStreamGame.innerHTML = `Категория: <span>${game !== 'null' ? game : 'Just Chatting'}</span>`;
+                    elTimerBox.style.display = 'block';
+                    if(timerInt) clearInterval(timerInt);
+                    timerInt = setInterval(() => {
+                        if(startTime) elDuration.textContent = formatMs(Date.now() - startTime);
+                    }, 1000);
+                }
+            } catch(e) { console.log('API Error', e); }
+        }
+        
+        updateAPI(); setInterval(updateAPI, 60000);
+
+        const chatContainer = document.getElementById('chat-container');
+        const chatStatus = document.getElementById('chat-status');
+        const MAX_CHAT_MESSAGES = 50;
+        let ws = null;
+
+        function connectChat() {
+            const anon = 'justinfan' + Math.floor(Math.random() * 99999);
+            ws = new WebSocket('wss://irc-ws.chat.twitch.tv:443');
+            
+            ws.onopen = () => {
+                ws.send('CAP REQ :twitch.tv/tags twitch.tv/commands');
+                ws.send('PASS SCHMOOPIIE');
+                ws.send(`NICK ${anon}`);
+                ws.send(`JOIN #${CHANNEL}`);
+            };
+
+            ws.onmessage = (e) => {
+                const lines = e.data.split('\r\n').filter(Boolean);
+                for (const line of lines) {
+                    if (line.startsWith('PING')) { ws.send('PONG :tmi.twitch.tv'); continue; }
+                    if (line.includes('JOIN') && line.includes(`#${CHANNEL}`)) { 
+                        chatStatus.textContent = 'ONLINE'; 
+                        chatStatus.style.color = '#fff'; 
+                        continue; 
+                    }
+
+                    if (line.includes('PRIVMSG')) {
+                        let name = 'User', text = '', isMod = false;
+                        const tagsMatch = line.match(/@([^ ]+)/);
+                        if (tagsMatch) {
+                            tagsMatch[1].split(';').forEach(t => {
+                                const [k, v] = t.split('=');
+                                if (k === 'display-name' && v) name = v;
+                                if (k === 'badges' && v && (v.includes('moderator') || v.includes('broadcaster'))) isMod = true;
+                            });
+                        }
+                        const msgMatch = line.match(/PRIVMSG\s+#\S+\s+:(.*)$/);
+                        if (msgMatch) text = msgMatch[1];
+                        renderChat(name, text, isMod);
+                    }
+                }
+            };
+            ws.onclose = () => { chatStatus.textContent = 'RECONNECTING'; setTimeout(connectChat, 3000); };
+        }
+
+        function escapeHtml(str) { return str.replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+
+        function renderChat(name, text, isMod) {
+            const div = document.createElement('div');
+            div.className = 'chat-msg';
+            let safeText = escapeHtml(text);
+            
+            const emotes = { 'Kappa': '25', 'LUL': '425618', 'PogChamp': '305954156', 'KEKW': 'emotesv2_9d79a37189344c13bcbd0712ff7e8df3', '4Head': '354', 'BibleThump': '86' };
+            for (const [emote, id] of Object.entries(emotes)) {
+                const url = id.includes('emotesv2') ? `https://static-cdn.jtvnw.net/emoticons/v2/${id}/default/dark/2.0` : `https://static-cdn.jtvnw.net/emoticons/v1/${id}/2.0`;
+                safeText = safeText.replace(new RegExp(`\\b${emote}\\b`, 'g'), `<img src="${url}" class="emote" alt="${emote}">`);
+            }
+            
+            const badge = isMod ? `<img src="${MOD_BADGE}" class="chat-badge" alt="MOD">` : '';
+            div.innerHTML = `<span class="chat-user">${badge}${escapeHtml(name)}:</span> <span class="chat-text">${safeText}</span>`;
+            
+            chatContainer.appendChild(div);
+            
+            while (chatContainer.children.length > MAX_CHAT_MESSAGES) { 
+                chatContainer.removeChild(chatContainer.firstChild); 
+            }
+            
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+        connectChat();
+    </script>
+</body>
+</html>
