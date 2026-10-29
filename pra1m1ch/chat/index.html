@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>pra1m1ch // CHAT WIDGET</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Space+Grotesk:wght@500;700&family=JetBrains+Mono:wght@400;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #000000;
+            --surface: #0a0a0a;
+            --text: #ffffff;
+            --text-muted: #888888;
+            --border: #333333;
+            --border-light: #555555;
+            --accent: #ffffff;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            font-family: 'Inter', sans-serif;
+            min-height: 100vh;
+            display: flex; flex-direction: column;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        /* Анимированный фон (как на сайте) */
+        #bg-canvas {
+            position: fixed; top: 0; left: 0;
+            width: 100vw; height: 100vh;
+            z-index: -2;
+        }
+
+        .scanlines {
+            position: fixed; inset: 0; pointer-events: none;
+            background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0) 50%, rgba(0,0,0,0.5) 50%, rgba(0,0,0,0.5));
+            background-size: 100% 3px; z-index: 9999;
+            animation: flicker 0.15s infinite alternate;
+            opacity: 0.3;
+        }
+        @keyframes flicker { 0% { opacity: 0.2; } 100% { opacity: 0.3; } }
+
+        /* ----- ЭКРАН НАСТРОЙКИ ----- */
+        #setup {
+            min-height: 100vh;
+            display: flex; align-items: center; justify-content: center;
+            padding: 24px;
+        }
+
+        .card {
+            width: 100%; max-width: 640px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            padding: 32px;
+            position: relative;
+            backdrop-filter: blur(10px);
+        }
+
+        .card::before {
+            content: ''; position: absolute; inset: -1px;
+            background: linear-gradient(45deg, transparent, rgba(255,255,255,0.1), transparent);
+            z-index: -1;
+        }
+
+        h1 {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 1.8rem; font-weight: 700;
+            margin-bottom: 8px; letter-spacing: -0.5px;
+        }
+
+        .sub {
+            color: var(--text-muted); font-size: 0.9rem;
+            margin-bottom: 28px; font-family: 'JetBrains Mono', monospace;
+        }
+
+        label {
+            display: block; font-size: 0.8rem; color: var(--text-muted);
+            margin-bottom: 6px; text-transform: uppercase;
+            letter-spacing: 0.5px; font-family: 'JetBrains Mono', monospace;
+        }
+
+        input[type="text"] {
+            width: 100%; padding: 14px 16px;
+            background: #000; border: 1px solid var(--border);
+            color: #fff; font-size: 1rem;
+            font-family: 'JetBrains Mono', monospace;
+            outline: none; transition: border-color 0.2s;
+        }
+        input:focus { border-color: #fff; }
+
+        .row { display: flex; gap: 10px; margin-top: 16px; }
+
+        button {
+            border: 1px solid var(--border);
+            background: transparent;
+            color: #fff; padding: 12px 20px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9rem; cursor: pointer;
+            transition: background 0.2s, border-color 0.2s;
+            text-transform: uppercase; letter-spacing: 0.5px;
+        }
+        button:hover { background: #111; border-color: #fff; }
+        button.primary { background: #fff; color: #000; border-color: #fff; }
+        button.primary:hover { background: #ccc; }
+
+        .result { margin-top: 24px; display: none; }
+        .result.show { display: block; }
+
+        .box { display: flex; gap: 8px; margin: 8px 0; }
+        .box input { flex: 1; font-size: 0.85rem; }
+
+        .hint {
+            font-size: 0.75rem; color: var(--text-muted);
+            font-family: 'JetBrains Mono', monospace;
+            margin-bottom: 16px;
+        }
+
+        .section-title {
+            font-size: 0.8rem; color: var(--text-muted);
+            text-transform: uppercase; letter-spacing: 0.5px;
+            font-family: 'JetBrains Mono', monospace;
+            margin-top: 20px; margin-bottom: 4px;
+        }
+
+        .copy-ok { background: #fff !important; color: #000 !important; }
+
+        /* ----- ВИДЖЕТ (ЧАТ) ----- */
+        #widget {
+            display: none;
+            height: 100vh;
+            padding: 16px;
+            flex-direction: column;
+        }
+
+        .chat-wrapper {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            overflow: hidden;
+            min-height: 0;
+        }
+
+        .chat-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .chat-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 8px 0;
+            min-height: 0;
+        }
+
+        .chat-list::-webkit-scrollbar { width: 6px; }
+        .chat-list::-webkit-scrollbar-track { background: #000; border-left: 2px solid var(--border); }
+        .chat-list::-webkit-scrollbar-thumb { background: #fff; }
+
+        .chat-msg {
+            font-size: 0.9rem;
+            line-height: 1.5;
+            padding: 8px 16px;
+            border-bottom: 1px solid rgba(51,51,51,0.5);
+            word-break: break-word;
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            animation: chatSlide 0.2s ease-out forwards;
+            font-family: 'JetBrains Mono', monospace;
+        }
+        .chat-msg:hover { background: #111; }
+        @keyframes chatSlide {
+            from { opacity: 0; transform: translateX(-10px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        .chat-user {
+            font-family: 'Space Grotesk', sans-serif;
+            font-weight: 700;
+            color: #fff;
+            white-space: nowrap;
+        }
+
+        .chat-text { color: #ccc; flex: 1; }
+
+        .chat-badge {
+            width: 16px; height: 16px;
+            vertical-align: middle;
+            margin-right: 4px;
+        }
+
+        .sys-msg {
+            color: var(--text-muted);
+            font-size: 0.75rem;
+            padding: 4px 16px;
+            font-family: 'JetBrains Mono', monospace;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+
+<canvas id="bg-canvas"></canvas>
+<div class="scanlines"></div>
+
+<!-- ЭКРАН НАСТРОЙКИ -->
+<div id="setup">
+    <div class="card">
+        <h1>🟣 CHAT WIDGET</h1>
+        <p class="sub">Введите ник на Twitch и получите ссылку для OBS Browser Source.</p>
+
+        <label for="nick">Ник на Twitch</label>
+        <input id="nick" type="text" placeholder="например: pra1m1ch" autocomplete="off" spellcheck="false" />
+
+        <div class="row">
+            <button id="go" class="primary">Сгенерировать</button>
+            <button id="clear">Очистить</button>
+        </div>
+
+        <div class="result" id="result">
+            <div class="section-title">✅ Прямая ссылка для OBS:</div>
+            <div class="box">
+                <input id="urlDirect" readonly />
+                <button data-copy="urlDirect">Копировать</button>
+            </div>
+            <p class="hint">Вставьте в OBS → Источники → «Браузер» → URL. Ширина ~400, высота ~700.</p>
+
+            <div class="section-title">🔗 Ссылка на этот виджет (если сайт на хостинге):</div>
+            <div class="box">
+                <input id="urlWidget" readonly />
+                <button data-copy="urlWidget">Копировать</button>
+            </div>
+            <p class="hint">Нужен хостинг (GitHub Pages, Netlify, Vercel). Локально через file:// чат не подключится.</p>
+        </div>
+    </div>
+</div>
+
+<!-- ВИДЖЕТ -->
+<div id="widget">
+    <div class="chat-wrapper">
+        <div class="chat-header">
+            <span>SYS.CHAT_FEED</span>
+            <span id="chat-status">CONNECTING</span>
+        </div>
+        <div class="chat-list" id="chat-container"></div>
+    </div>
+</div>
+
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tmi.js@1.8.5/dist/tmi.min.js"></script>
+<script>
+    // ---------- АНИМИРОВАННЫЙ ФОН (как на сайте) ----------
+    const canvas = document.getElementById('bg-canvas');
+    const ctx = canvas.getContext('2d');
+    let width, height, stars = [], gridOffset = 0;
+
+    function resize() {
+        width = canvas.width = window.innerWidth;
+        height = canvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    for (let i = 0; i < 100; i++) {
+        stars.push({
+            x: Math.random() * width,
+            y: Math.random() * height,
+            z: Math.random() * 2 + 0.5,
+            size: Math.random() * 1.5
+        });
+    }
+
+    function drawBackground() {
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(0, 0, width, height);
+
+        gridOffset += 0.5;
+        if (gridOffset > 40) gridOffset = 0;
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.03)';
+        ctx.lineWidth = 1;
+        for (let i = 0; i < width; i += 40) {
+            ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, height); ctx.stroke();
+        }
+        for (let j = gridOffset; j < height; j += 40) {
+            ctx.beginPath(); ctx.moveTo(0, j); ctx.lineTo(width, j); ctx.stroke();
+        }
+
+        stars.forEach(s => {
+            ctx.fillStyle = `rgba(255, 255, 255, ${Math.random() * 0.5 + 0.3})`;
+            ctx.beginPath(); ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2); ctx.fill();
+            s.y += s.z * 0.2;
+            if (s.y > height) s.y = 0;
+        });
+
+        requestAnimationFrame(drawBackground);
+    }
+    drawBackground();
+
+    // ---------- ЛОГИКА ----------
+    const params = new URLSearchParams(location.search);
+    const channel = (params.get('channel') || '').trim().toLowerCase();
+
+    const normalize = n => n.replace(/^#/, '').replace(/^https?:\/\/[^/]+\//, '').trim().toLowerCase();
+
+    function directUrl(n) {
+        return 'https://www.twitch.tv/embed/' + n + '/chat?parent=twitch.tv&darkpopout';
+    }
+    function widgetUrl(n) {
+        return location.origin + location.pathname + '?channel=' + encodeURIComponent(n);
+    }
+
+    // ---------- ПОДКЛЮЧЕНИЕ К ЧАТУ ЧЕРЕЗ TMI.JS ----------
+    let client = null;
+
+    function connectChat(channelName) {
+        if (client) {
+            client.disconnect();
+        }
+
+        const statusEl = document.getElementById('chat-status');
+        const chatContainer = document.getElementById('chat-container');
+
+        statusEl.textContent = 'CONNECTING';
+
+        client = new tmi.Client({
+            connection: { secure: true, reconnect: true },
+            channels: [channelName]
+        });
+
+        client.on('connected', () => {
+            statusEl.textContent = 'LIVE';
+            addSystemMessage(`Connected to #${channelName}`);
+        });
+
+        client.on('disconnected', () => {
+            statusEl.textContent = 'DISCONNECTED';
+            addSystemMessage('Disconnected. Reconnecting...');
+        });
+
+        client.on('message', (target, context, msg, self) => {
+            if (self) return;
+            addMessage(context, msg);
+        });
+
+        client.connect().catch(err => {
+            console.error('Connection error:', err);
+            statusEl.textContent = 'ERROR';
+            addSystemMessage('Connection failed. Check the channel name.');
+        });
+    }
+
+    function addMessage(context, msg) {
+        const container = document.getElementById('chat-container');
+        const div = document.createElement('div');
+        div.className = 'chat-msg';
+
+        const userSpan = document.createElement('span');
+        userSpan.className = 'chat-user';
+        userSpan.textContent = context['display-name'] || context.username;
+
+        // Бейджи (если есть)
+        if (context.badges) {
+            for (const badge in context.badges) {
+                if (badge === 'moderator') {
+                    const img = document.createElement('img');
+                    img.className = 'chat-badge';
+                    img.src = 'https://static-cdn.jtvnw.net/badges/v1/3267646d-33f0-4b17-b3df-f923a41db1d0/1';
+                    div.appendChild(img);
+                }
+            }
+        }
+
+        const textSpan = document.createElement('span');
+        textSpan.className = 'chat-text';
+        textSpan.textContent = msg;
+
+        div.appendChild(userSpan);
+        div.appendChild(textSpan);
+
+        container.appendChild(div);
+        container.scrollTop = container.scrollHeight;
+
+        // Ограничиваем количество сообщений (чтобы не тормозило)
+        while (container.children.length > 200) {
+            container.removeChild(container.firstChild);
+        }
+    }
+
+    function addSystemMessage(text) {
+        const container = document.getElementById('chat-container');
+        const div = document.createElement('div');
+        div.className = 'sys-msg';
+        div.textContent = `[SYS] ${text}`;
+        container.appendChild(div);
+        container.scrollTop = container.scrollHeight;
+    }
+
+    // ---------- ИНИЦИАЛИЗАЦИЯ ----------
+    if (channel) {
+        document.getElementById('setup').style.display = 'none';
+        document.getElementById('widget').style.display = 'flex';
+        connectChat(channel);
+    } else {
+        const nick = document.getElementById('nick');
+        const res = document.getElementById('result');
+
+        document.getElementById('go').addEventListener('click', () => {
+            const n = normalize(nick.value);
+            if (!n) return;
+            document.getElementById('urlDirect').value = directUrl(n);
+            document.getElementById('urlWidget').value = widgetUrl(n);
+            res.classList.add('show');
+        });
+
+        nick.addEventListener('keydown', e => {
+            if (e.key === 'Enter') document.getElementById('go').click();
+        });
+
+        document.getElementById('clear').addEventListener('click', () => {
+            nick.value = '';
+            res.classList.remove('show');
+            nick.focus();
+        });
+
+        document.querySelectorAll('[data-copy]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const input = document.getElementById(btn.dataset.copy);
+                input.select();
+                const text = input.value;
+                const done = () => {
+                    const t = btn.textContent;
+                    btn.textContent = '✓ Скопировано';
+                    btn.classList.add('copy-ok');
+                    setTimeout(() => {
+                        btn.textContent = t;
+                        btn.classList.remove('copy-ok');
+                    }, 1500);
+                };
+                if (navigator.clipboard) navigator.clipboard.writeText(text).then(done);
+                else { document.execCommand('copy'); done(); }
+            });
+        });
+
+        nick.focus();
+    }
+</script>
+</body>
+</html>
